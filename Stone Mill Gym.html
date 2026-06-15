@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Stone Mill">
+<title>Stone Mill Gym</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:#1C1A17;overscroll-behavior:none}
+textarea{outline:none}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState,useEffect,useRef}=React;
+const lsGet=(k,d)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):d;}catch(e){return d;}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}};
+function useLS(key,def){
+  const [val,setVal]=useState(()=>lsGet(key,def));
+  const save=(v)=>{setVal(v);lsSet(key,v);};
+  return [val,save];
+}
+
+// ── RECOMPOSITION WORKOUT PLAN ─────────────────────────────────────────────
+// Goal: Strip belly fat + build upper body mass + strengthen shoulder
+// Heavy compounds 6-10 reps for mass | Isolation 12-15 reps | Walk for belly fat
+const GYM=[
+  {id:0,name:"DAY 1",focus:"Chest + Triceps",exercises:[
+    {n:"Incline DB Press",s:4,r:"6-10",note:"Primary mass builder — go heavy, control the descent"},
+    {n:"Flat DB Press",s:3,r:"8-12",note:"Start moderate — listen to shoulder. Stop if pain above 3/10"},
+    {n:"Cable Chest Fly",s:3,r:"12-15",note:"Constant tension — feel the stretch, squeeze at center"},
+    {n:"Chest Dip (assisted if needed)",s:3,r:"8-10",note:"Lean forward slightly for chest emphasis"},
+    {n:"Tricep Rope Pushdown",s:4,r:"10-12",note:"Elbows pinned — drive hands apart at bottom"},
+    {n:"Overhead DB Tricep Extension",s:3,r:"10-12",note:"Long head focus — key for arm mass"},
+    {n:"Cable Crunch",s:3,r:"15-20",note:"Belly fat target — do these every session"},
+  ],cardio:{n:"Incline Treadmill Walk",dur:30,note:"3.5-4 mph, 8-10% grade — 10,000 step goal"}},
+  {id:1,name:"DAY 2",focus:"Back + Biceps",exercises:[
+    {n:"Bent-Over DB Row",s:4,r:"6-10",note:"Heaviest back exercise in the plan — build thickness"},
+    {n:"Lat Pulldown",s:4,r:"8-12",note:"Wide grip for lat width — pull to upper chest"},
+    {n:"Seated Cable Row",s:3,r:"10-12",note:"Squeeze shoulder blades together at end"},
+    {n:"Face Pulls",s:3,r:"15",note:"Non-negotiable — builds shoulder health every session"},
+    {n:"Incline DB Curl",s:3,r:"10-12",note:"Full stretch at bottom — best bicep mass builder"},
+    {n:"Hammer Curl",s:3,r:"10-12",note:"Forearm and brachialis thickness"},
+    {n:"Hanging Knee Raise",s:3,r:"15",note:"Core and belly — squeeze at top"},
+  ],cardio:{n:"Brisk Walk — Treadmill or Road",dur:30,note:"3.5-4 mph flat — active recovery, keeps steps up"}},
+  {id:2,name:"DAY 3",focus:"Legs + Core",exercises:[
+    {n:"Leg Press",s:4,r:"8-12",note:"Go heavy — no spinal load, back-friendly mass builder"},
+    {n:"Leg Press (close stance)",s:3,r:"10-12",note:"Feet closer together hits outer quad — different stimulus"},
+    {n:"Leg Extension",s:3,r:"12-15",note:"Quad isolation — full extension, control the lowering"},
+    {n:"Leg Curl Machine",s:3,r:"12-15",note:""},
+    {n:"Walking Lunges",s:3,r:"12 each",note:"Hold DBs when bodyweight feels easy"},
+    {n:"Calf Raises",s:4,r:"20-25",note:"Full stretch at bottom, hold squeeze at top"},
+    {n:"Plank",s:3,r:"60 sec",note:""},
+    {n:"Cable Crunch",s:3,r:"15-20",note:"Belly target"},
+  ],cardio:{n:"Incline Treadmill Walk",dur:25,note:"8-10% grade — incline walk is best belly fat tool you have"}},
+  {id:3,name:"DAY 4",focus:"Shoulders",exercises:[
+    {n:"DB Shoulder Press",s:4,r:"8-10",note:"Start at a weight that feels easy — add 5 lbs/week. Build the foundation"},
+    {n:"Arnold Press",s:3,r:"10-12",note:"Full range of motion — builds all three heads"},
+    {n:"DB Lateral Raise",s:4,r:"12-15",note:"Side delt width — slight bend in elbow, lead with elbow"},
+    {n:"Cable Lateral Raise",s:3,r:"15",note:"Cable keeps tension at bottom where DBs go slack"},
+    {n:"Rear Delt Fly (bent over)",s:4,r:"12-15",note:"Critical for shoulder health and posture — don't skip"},
+    {n:"Face Pulls",s:3,r:"15",note:"Rotator cuff strength — keep weight light, perfect form"},
+    {n:"DB Shrug",s:3,r:"12-15",note:"Trap mass — hold squeeze 1 sec at top"},
+  ],cardio:{n:"Brisk Walk — Road or Treadmill",dur:30,note:"This is your outdoor walk day — aim for 10-12k steps total"}},
+  {id:4,name:"DAY 5",focus:"Arms + Full Body",exercises:[
+    {n:"EZ Bar Curl",s:4,r:"8-10",note:"Heavier bicep work — go for a weight that's challenging at 8"},
+    {n:"Incline DB Curl",s:3,r:"10-12",note:"Stretch at bottom — feel it in the long head"},
+    {n:"Tricep Dip (weighted if possible)",s:4,r:"8-10",note:"Best overall tricep mass builder"},
+    {n:"Skull Crusher (EZ Bar)",s:3,r:"10-12",note:"Long head thickness — control the weight"},
+    {n:"Lateral Raise",s:3,r:"15",note:"Keep shoulder volume up every session"},
+    {n:"Goblet Squat",s:3,r:"15",note:"Full body compound — keep back straight"},
+    {n:"Hanging Leg Raise",s:4,r:"12-15",note:"Belly target — straight legs when you're ready"},
+    {n:"Russian Twist",s:3,r:"20",note:"Obliques — use a plate when bodyweight is easy"},
+  ],cardio:{n:"Incline Treadmill Walk",dur:30,note:"End of week big burn — 8-10% grade, 30 min steady"}},
+];
+
+const TRAVEL=[
+  {id:0,name:"DAY 1",focus:"Push + Core",exercises:[
+    {n:"Push-Up (standard)",s:4,r:"15-20",note:"Chest & triceps"},
+    {n:"Wide Push-Up",s:3,r:"12-15",note:"Outer chest focus"},
+    {n:"Diamond Push-Up",s:3,r:"10-12",note:"Tricep emphasis"},
+    {n:"Pike Push-Up",s:3,r:"10-12",note:"Shoulder press substitute"},
+    {n:"Tricep Dip (chair or bed)",s:3,r:"12-15",note:"Use sturdy chair"},
+    {n:"Plank",s:4,r:"45 sec",note:""},
+    {n:"Leg Raise (floor)",s:3,r:"15-20",note:"Lower abs"},
+    {n:"Mountain Climbers",s:3,r:"30 sec",note:"Core + cardio finisher"},
+  ],cardio:{n:"Brisk Walk Outdoors",dur:30,note:"10-12k steps goal — find hills if possible"}},
+  {id:1,name:"DAY 2",focus:"Pull + Core",exercises:[
+    {n:"Doorframe Row (or table row)",s:4,r:"10-12",note:"Lie under table, pull chest to edge"},
+    {n:"Towel Row (door anchor)",s:4,r:"10-12",note:"Loop towel on door handle, lean back & row"},
+    {n:"Superman Hold",s:4,r:"12",note:"Hold 2 sec at top"},
+    {n:"Reverse Snow Angel (floor)",s:3,r:"15",note:"Rear delts & traps"},
+    {n:"Chin-Up (if bar available)",s:3,r:"Max",note:"Jump up, lower slowly"},
+    {n:"Bicycle Crunch",s:3,r:"20 each",note:""},
+    {n:"Russian Twist",s:3,r:"20",note:"Use water bottle as weight"},
+  ],cardio:{n:"Brisk Walk Outdoors",dur:30,note:"3.5-4 mph — find hills"}},
+  {id:2,name:"DAY 3",focus:"Legs + Core",exercises:[
+    {n:"Bodyweight Squat",s:4,r:"20-25",note:"3 sec down, explode up"},
+    {n:"Reverse Lunge",s:4,r:"12 each",note:""},
+    {n:"Glute Bridge",s:4,r:"20",note:"Hold 1 sec at top"},
+    {n:"Single-Leg Glute Bridge",s:3,r:"15 each",note:""},
+    {n:"Wall Sit",s:3,r:"45 sec",note:"Same burn as leg press"},
+    {n:"Calf Raise (step edge)",s:4,r:"25",note:""},
+    {n:"Jump Squat",s:3,r:"10",note:"Explosive"},
+    {n:"Plank",s:3,r:"45 sec",note:""},
+  ],cardio:{n:"Incline Walk — Find a Hill",dur:25,note:"Hotel stairs = best option"}},
+  {id:3,name:"DAY 4",focus:"Shoulders + Arms",exercises:[
+    {n:"Pike Push-Up",s:4,r:"12-15",note:"Best shoulder press substitute"},
+    {n:"Decline Push-Up (feet on bed)",s:3,r:"12",note:"Upper chest + shoulder"},
+    {n:"Lateral Raise (water bottles)",s:3,r:"15",note:"1-2L bottles as weights"},
+    {n:"Rear Delt Fly (bent over)",s:3,r:"15",note:"Shoulder health"},
+    {n:"Bicep Curl (water bottles)",s:3,r:"12",note:"Use backpack if no bottles"},
+    {n:"Tricep Dip (chair)",s:3,r:"12-15",note:""},
+    {n:"Plank Walk-Out",s:3,r:"10",note:"Walk hands out from plank"},
+    {n:"V-Up",s:3,r:"12",note:""},
+  ],cardio:{n:"Brisk Walk Outdoors",dur:30,note:"10-12k steps — find a route"}},
+  {id:4,name:"DAY 5",focus:"Full Body",exercises:[
+    {n:"Burpee",s:5,r:"10",note:"Full body — max calorie burn"},
+    {n:"Push-Up",s:3,r:"15",note:""},
+    {n:"Jump Squat",s:3,r:"10",note:""},
+    {n:"Mountain Climbers",s:3,r:"30 sec",note:""},
+    {n:"Reverse Lunge + Knee Drive",s:3,r:"10 each",note:""},
+    {n:"Plank",s:3,r:"45 sec",note:""},
+    {n:"Bicycle Crunch",s:3,r:"20 each",note:""},
+    {n:"Bear Crawl",s:3,r:"20 steps",note:"Forward & back"},
+  ],cardio:{n:"Brisk Walk Outdoors",dur:30,note:"End of week — aim for 12k steps today"}},
+];
+
+const TRAVEL_TIPS=[
+  {icon:"💧",tip:"Use 1-2L water bottles as weights for lateral raises, curls, and flyes."},
+  {icon:"🪑",tip:"Sturdy chair = dip station. Bed = decline push-ups and glute bridges."},
+  {icon:"🚪",tip:"Loop towel around door handle, lean back 45° and row. Replaces cable rows."},
+  {icon:"🏨",tip:"Hotel stairs beat a treadmill. 15 min up/down = excellent cardio and steps."},
+  {icon:"⏱",tip:"No weights? Shorten rest to 30 sec to keep heart rate up."},
+  {icon:"📈",tip:"Slow the lowering phase to 3 sec per rep to add intensity without weight."},
+];
+
+const MSGS=["Fourth-generation mason. Keep building.","The DeVos job looked impossible. You finished it.","Pressure builds stone. You know this.","Nobody telling you no today.","$120M starts right here.","Hotel room. No excuses. Done.","Upper body is coming in. Stay the course.","Belly fat doesn't stand a chance."];
+
+const G="#C9A84C",D="#1C1A17",D2="#2C2820",D3="#3D3830",CR="#F5F0E8",MU="#8A8070",GR="#27A96C",TB="#1B4F72",TB2="#2874A6";
+const s={
+  app:{background:D,minHeight:"100vh",fontFamily:"'DM Sans',sans-serif",color:CR,display:"flex",flexDirection:"column",maxWidth:480,margin:"0 auto"},
+  topbar:{background:D,borderBottom:`1px solid ${D3}`,padding:"14px 16px 10px",flexShrink:0,position:"sticky",top:0,zIndex:50},
+  logo:{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:2,color:G},
+  scroll:{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"16px 16px 110px"},
+  nav:{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,background:D2,borderTop:`1px solid ${D3}`,display:"flex",zIndex:100,paddingBottom:"env(safe-area-inset-bottom)"},
+  navBtn:{flex:1,background:"transparent",border:"none",color:MU,fontSize:10,fontWeight:600,letterSpacing:".5px",textTransform:"uppercase",padding:"10px 4px 8px",cursor:"pointer",display:"flex",flexDirection:"column",alignItems:"center",gap:3,fontFamily:"'DM Sans',sans-serif"},
+  card:{background:D2,border:`1px solid ${D3}`,borderRadius:12,marginBottom:12,overflow:"hidden"},
+  cardHead:{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 16px",cursor:"pointer"},
+  cardTitle:{fontSize:15,fontWeight:600,color:CR},
+  cardSub:{fontSize:12,color:MU,marginTop:2},
+  badge:{fontSize:11,fontWeight:600,padding:"3px 10px",borderRadius:20,background:D3,color:MU,whiteSpace:"nowrap"},
+  cardBody:{padding:"0 16px 14px"},
+  setRow:{display:"flex",alignItems:"center",gap:10,padding:"8px 0",borderBottom:`1px solid ${D3}`},
+  setNum:{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,color:G,width:26,flexShrink:0,textAlign:"center"},
+  setInput:{width:"100%",background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:20,fontWeight:600,fontFamily:"'DM Sans',sans-serif",padding:"10px 6px",textAlign:"center",WebkitAppearance:"none",minHeight:44,outline:"none"},
+  check:{width:44,height:44,borderRadius:8,background:D3,border:`1px solid #4A4540`,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,fontSize:20,userSelect:"none"},
+  checkDone:{background:"#0F3D22",border:"1px solid #27A96C"},
+  stat:{background:D2,border:`1px solid ${D3}`,borderRadius:12,padding:"14px 10px",textAlign:"center"},
+  statVal:{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:G,letterSpacing:1},
+  statLbl:{fontSize:11,color:MU,marginTop:2},
+  bigInput:{width:"100%",background:D2,border:`2px solid ${D3}`,borderRadius:12,color:CR,fontFamily:"'Bebas Neue',sans-serif",fontSize:52,letterSpacing:3,padding:18,textAlign:"center",WebkitAppearance:"none",minHeight:90,display:"block",outline:"none"},
+  bigBtn:{width:"100%",background:G,color:D,fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:2,border:"none",borderRadius:12,padding:16,cursor:"pointer",minHeight:52,display:"block"},
+};
+
+function SmartInput({value,onSave,placeholder,im,style}){
+  const [local,setLocal]=useState(value||"");
+  const debounce=useRef(null);
+  const latest=useRef(local);
+  useEffect(()=>{setLocal(value||"");latest.current=value||"";},[value]);
+  useEffect(()=>{
+    const flush=()=>{clearTimeout(debounce.current);onSave(latest.current);};
+    document.addEventListener("visibilitychange",flush);
+    window.addEventListener("pagehide",flush);
+    return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",flush);clearTimeout(debounce.current);};
+  },[]);
+  return <input type="text" inputMode={im||"decimal"} style={style||s.setInput} placeholder={placeholder||""} value={local}
+    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}
+    onBlur={e=>{clearTimeout(debounce.current);onSave(e.target.value);}}/>;
+}
+function SmartTextarea({value,onSave,placeholder}){
+  const [local,setLocal]=useState(value||"");
+  const debounce=useRef(null);
+  const latest=useRef(local);
+  useEffect(()=>{setLocal(value||"");latest.current=value||"";},[value]);
+  useEffect(()=>{
+    const flush=()=>{clearTimeout(debounce.current);onSave(latest.current);};
+    document.addEventListener("visibilitychange",flush);
+    window.addEventListener("pagehide",flush);
+    return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",flush);clearTimeout(debounce.current);};
+  },[]);
+  return <textarea style={{width:"100%",background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:14,fontFamily:"'DM Sans',sans-serif",padding:"10px 12px",resize:"none",minHeight:80,lineHeight:1.5}} placeholder={placeholder||""}
+    value={local}
+    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}
+    onBlur={e=>{clearTimeout(debounce.current);onSave(e.target.value);}}/>;
+}
+
+function App(){
+  const [tab,setTab]=useState("home");
+  const [mode,saveMode]=useLS("smg-mode","gym");
+  const [day,setDay]=useState(()=>{const d=new Date().getDay();return {1:0,2:1,3:2,4:3,5:4,6:4,0:4}[d]||0;});
+  const [logs,saveLogs]=useLS("smg-logs",{});
+  const [weights,saveWeights]=useLS("smg-weights",[]);
+  const [steps,saveSteps]=useLS("smg-steps",[]);
+  const [done,saveDone]=useLS("smg-done",[]);
+  const [openEx,setOpenEx]=useState({0:true});
+  const [timer,setTimer]=useState(null);
+  const [timerSec,setTimerSec]=useState(0);
+  const [timerNext,setTimerNext]=useState("");
+  const [modal,setModal]=useState(null);
+  const [wInput,setWInput]=useState("");
+  const [stepInput,setStepInput]=useState("");
+  const [exportText,setExportText]=useState("Tap Generate to preview your data...");
+  const [copied,setCopied]=useState(false);
+  const timerRef=useRef(null);
+  const WO=mode==="travel"?TRAVEL:GYM;
+  const ac=mode==="travel"?TB2:G;
+
+  const dayKey=(di)=>{
+    const now=new Date(),dow=now.getDay();
+    const mon=new Date(now);mon.setDate(now.getDate()-(dow===0?6:dow-1));
+    const d=new Date(mon);d.setDate(mon.getDate()+di);
+    return `${mode}-${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}-d${di}`;
+  };
+  const k=dayKey(day);
+  const dl=logs[k]||{};
+
+  const updateLog=(updater)=>{
+    const nl={...logs,[k]:{...logs[k]}};
+    updater(nl[k]);
+    saveLogs(nl);
+  };
+
+  const startTimer=(secs,next)=>{
+    clearInterval(timerRef.current);setTimerSec(secs);setTimerNext(next);setTimer(true);
+    timerRef.current=setInterval(()=>setTimerSec(p=>{if(p<=1){clearInterval(timerRef.current);setTimer(null);return 0;}return p-1;}),1000);
+  };
+
+  const checkSet=(ei,si)=>{
+    const nl={...logs,[k]:{...logs[k]}};
+    if(!nl[k][ei])nl[k][ei]={};
+    if(!nl[k][ei][si])nl[k][ei][si]={};
+    const was=nl[k][ei][si].done||false;
+    nl[k][ei][si].done=!was;
+    saveLogs(nl);
+    if(!was){const ex=WO[day].exercises[ei];const numS=(nl[k][ei].extra||0)+ex.s;startTimer(mode==="travel"?30:90,si+2<=numS?`Set ${si+2} of ${ex.n}`:"Next exercise");}
+  };
+  const addSet=(ei)=>{updateLog(d=>{if(!d[ei])d[ei]={};d[ei].extra=(d[ei].extra||0)+1;});setOpenEx(p=>({...p,[ei]:true}));};
+  const setVal=(ei,si,field,val)=>updateLog(d=>{if(!d[ei])d[ei]={};if(!d[ei][si])d[ei][si]={};d[ei][si][field]=val;});
+  const setCardio=(field,val)=>updateLog(d=>{if(!d.cardio)d.cardio={};d.cardio[field]=val;});
+  const setNote=(val)=>updateLog(d=>{d.sessionNote=val;});
+  const setRating=(r)=>updateLog(d=>{d.rating=r;});
+
+  const finishWorkout=()=>{
+    const dk=dayKey(day);if(!done.includes(dk))saveDone([...done,dk]);
+    setModal(MSGS[Math.floor(Math.random()*MSGS.length)]);
+  };
+
+  const logWeight=()=>{
+    const v=parseFloat(wInput);if(!v||v<100||v>400)return;
+    const today=new Date().toISOString().split("T")[0];
+    saveWeights([...weights.filter(e=>e.d!==today),{d:today,w:v}].sort((a,b)=>a.d.localeCompare(b.d)));
+    setWInput("");
+  };
+
+  const logSteps=()=>{
+    const v=parseInt(stepInput);if(!v||v<0||v>100000)return;
+    const today=new Date().toISOString().split("T")[0];
+    saveSteps([...steps.filter(e=>e.d!==today),{d:today,s:v}].sort((a,b)=>a.d.localeCompare(b.d)));
+    setStepInput("");
+  };
+
+  const avg7Steps=()=>{
+    const recent=[...steps].slice(-7);
+    if(!recent.length)return 0;
+    return Math.round(recent.reduce((a,e)=>a+e.s,0)/recent.length);
+  };
+
+  const latestWeight=weights.length?weights[weights.length-1].w:null;
+  const lbsLost=latestWeight?Math.max(0,220-latestWeight):null;
+  const todaySteps=steps.find(e=>e.d===new Date().toISOString().split("T")[0])?.s||0;
+  const stepGoal=11000;
+  const stepPct=Math.min(100,Math.round((todaySteps/stepGoal)*100));
+
+  const generateExport=()=>{
+    let t=`STONE MILL GYM TRACKER\nExported: ${new Date().toLocaleDateString()}\n${"=".repeat(40)}\n\nWEIGHT LOG\n${"-".repeat(30)}\n`;
+    if(weights.length){weights.forEach(e=>{t+=`${e.d} | ${e.w} lbs\n`;});t+=`\nStart: 220 lbs | Current: ${latestWeight} | Lost: ${lbsLost?.toFixed(1)} lbs\n`;}
+    else t+="No entries yet.\n";
+    t+=`\n${"=".repeat(40)}\n\nSTEP LOG\n${"-".repeat(30)}\n`;
+    if(steps.length){steps.forEach(e=>{t+=`${e.d} | ${e.s.toLocaleString()} steps\n`;});t+=`\n7-day avg: ${avg7Steps().toLocaleString()} steps\n`;}
+    else t+="No step entries yet.\n";
+    t+=`\n${"=".repeat(40)}\n\nWORKOUT LOG\n${"-".repeat(30)}\n`;
+    const keys=Object.keys(logs).sort();
+    if(!keys.length)t+="No workouts yet.\n";
+    else keys.forEach(lk=>{
+      const pts=lk.split("-");const isTrav=pts[0]==="travel";const di=parseInt(pts[pts.length-1].replace("d",""));
+      const w=(isTrav?TRAVEL:GYM)[di];if(!w)return;
+      t+=`\n${pts.slice(1,4).join("-")} — ${isTrav?"✈️ TRAVEL ":""}${w.name} ${w.focus}\n`;
+      const dl2=logs[lk];
+      w.exercises.forEach((ex,ei)=>{
+        const exl=dl2[ei]||{};const numS=(exl.extra||0)+ex.s;t+=`  ${ex.n}:\n`;
+        for(let si=0;si<numS;si++){const sd=exl[si]||{};t+=`    Set ${si+1}: ${isTrav?(sd.r||ex.r)+" reps":(sd.w||"—")+"lbs x "+(sd.r||ex.r)} ${sd.done?"✓":"○"}\n`;}
+      });
+      if(dl2.cardio){const c=dl2.cardio;t+=`  ${w.cardio.n}: ${c.dur||"—"} min\n`;}
+      if(dl2.rating)t+=`  Rating: ${"★".repeat(dl2.rating)}\n`;
+      if(dl2.sessionNote)t+=`  Notes: ${dl2.sessionNote}\n`;
+    });
+    setExportText(t);return t;
+  };
+  const copyExport=()=>{
+    const t=exportText==="Tap Generate to preview your data..."?generateExport():exportText;
+    navigator.clipboard?.writeText(t).then(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);}).catch(()=>{setCopied(true);setTimeout(()=>setCopied(false),2000);});
+  };
+
+  // ── HOME ──────────────────────────────────────────────────────────────────
+  const HomeScreen=()=>(
+    <div style={{paddingBottom:90}}>
+      <div style={s.topbar}>
+        <div style={s.logo}>Stone <span style={{color:CR}}>Mill</span></div>
+        <div style={{fontSize:12,color:MU,marginTop:2}}>{new Date().toLocaleDateString("en-US",{weekday:"long",month:"short",day:"numeric"})}</div>
+      </div>
+      <div style={s.scroll}>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:13,color:MU}}>Welcome back,</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:38,letterSpacing:3,color:CR,lineHeight:1}}>STEVE <span style={{color:G}}>MILLER</span></div>
+        </div>
+        <div style={{display:"flex",background:D3,borderRadius:10,padding:3,marginBottom:16}}>
+          {[["gym","🏋️  Gym"],["travel","✈️  Travel"]].map(([m,lbl])=>(
+            <button key={m} onClick={()=>{saveMode(m);setOpenEx({0:true});}} style={{flex:1,padding:"10px 8px",borderRadius:8,border:"none",fontFamily:"'DM Sans',sans-serif",fontWeight:600,fontSize:13,cursor:"pointer",background:mode===m?(m==="travel"?TB2:G):"transparent",color:mode===m?(m==="travel"?CR:D):MU}}>{lbl}</button>
+          ))}
+        </div>
+        {/* Stats row */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:12}}>
+          <div style={s.stat}><div style={s.statVal}>{latestWeight||"—"}</div><div style={s.statLbl}>Current lbs</div></div>
+          <div style={s.stat}><div style={s.statVal}>{lbsLost!==null?lbsLost.toFixed(1):"—"}</div><div style={s.statLbl}>Lbs lost</div></div>
+          <div style={s.stat}><div style={s.statVal}>{done.length}</div><div style={s.statLbl}>Workouts</div></div>
+        </div>
+        {/* Step counter */}
+        <div style={{background:D2,border:`1px solid ${stepPct>=100?"#27A96C":D3}`,borderRadius:12,padding:"14px 16px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:10}}>
+            <div>
+              <div style={{fontSize:11,fontWeight:600,color:GR,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>👟 Today's Steps</div>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:32,color:stepPct>=100?GR:CR,letterSpacing:2,lineHeight:1}}>{todaySteps>0?todaySteps.toLocaleString():"—"}</div>
+              <div style={{fontSize:11,color:MU,marginTop:2}}>Goal: {stepGoal.toLocaleString()} · 7-day avg: {avg7Steps()>0?avg7Steps().toLocaleString():"—"}</div>
+            </div>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,color:stepPct>=100?GR:G,letterSpacing:1}}>{stepPct}%</div>
+              <div style={{fontSize:11,color:MU}}>of goal</div>
+            </div>
+          </div>
+          <div style={{height:6,background:D3,borderRadius:3,marginBottom:10}}>
+            <div style={{height:6,background:stepPct>=100?GR:G,borderRadius:3,width:`${stepPct}%`,transition:"width .4s"}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <input type="text" inputMode="numeric" placeholder="Enter steps..." value={stepInput} onChange={e=>setStepInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSteps()} style={{flex:1,background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:16,fontFamily:"'DM Sans',sans-serif",padding:"10px 12px",outline:"none"}}/>
+            <button onClick={logSteps} style={{background:GR,color:D,fontFamily:"'Bebas Neue',sans-serif",fontSize:16,letterSpacing:1,border:"none",borderRadius:8,padding:"10px 16px",cursor:"pointer",whiteSpace:"nowrap"}}>LOG</button>
+          </div>
+        </div>
+        {/* Today's workout */}
+        <div onClick={()=>setTab("workout")} style={{background:D2,border:`1.5px solid ${ac}`,borderRadius:12,padding:18,cursor:"pointer",display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+          <div>
+            <div style={{fontSize:11,fontWeight:600,color:ac,letterSpacing:1,textTransform:"uppercase",marginBottom:5}}>Today's Workout</div>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:22,letterSpacing:2,color:CR}}>{WO[day].name} — {WO[day].focus}</div>
+            <div style={{fontSize:12,color:MU,marginTop:3}}>{WO[day].exercises.slice(0,3).map(e=>e.n).join(" · ")}...</div>
+          </div>
+          <div style={{fontSize:28,color:ac}}>→</div>
+        </div>
+        <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>This Week</div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:8}}>
+          {WO.map((w,i)=>{
+            const dk=dayKey(i);const isDone=done.includes(dk);const isToday=i===day;
+            const icons=["💪","🏋️","🦵","🏆","💪"];const days=["MON","TUE","WED","THU","FRI"];const lbls=["Chest","Back","Legs","Shldrs","Arms"];
+            return <div key={i} onClick={()=>{setDay(i);setTab("workout");}} style={{background:D2,border:`1px solid ${isDone?GR:isToday?ac:D3}`,borderRadius:10,padding:"10px 4px",textAlign:"center",cursor:"pointer"}}>
+              <div style={{fontSize:10,color:MU,fontWeight:600,textTransform:"uppercase",letterSpacing:".5px"}}>{days[i]}</div>
+              <div style={{fontSize:18,margin:"4px 0 2px"}}>{isDone?"✅":icons[i]}</div>
+              <div style={{fontSize:10,color:MU}}>{lbls[i]}</div>
+            </div>;
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  // ── WORKOUT ───────────────────────────────────────────────────────────────
+  const WorkoutScreen=()=>{
+    const w=WO[day];let total=0,comp=0;
+    w.exercises.forEach((ex,ei)=>{const numS=(dl[ei]?.extra||0)+ex.s;total+=numS;for(let s=0;s<numS;s++){if(dl[ei]?.[s]?.done)comp++;}});
+    const pct=total>0?Math.round(comp/total*100):0;
+    const rating=dl.rating||0;
+    return (
+      <div style={{display:"flex",flexDirection:"column",height:"100dvh",overflow:"hidden"}}>
+        <div style={{...s.topbar,background:mode==="travel"?TB:D,borderBottom:`1px solid ${mode==="travel"?TB2:D3}`}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div style={{...s.logo,color:mode==="travel"?"#AED6F1":G}}>Stone <span style={{color:CR}}>Mill</span>{mode==="travel"&&<span style={{fontSize:13,letterSpacing:1}}> ✈️</span>}</div>
+            <div style={{fontSize:12,color:mode==="travel"?"#AED6F1":MU}}>{comp}/{total} sets</div>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:6,overflowX:"auto",padding:"10px 16px",background:mode==="travel"?TB:D,borderBottom:`1px solid ${D3}`,flexShrink:0}}>
+          {WO.map((d,i)=>{const dk=dayKey(i);const isDone=done.includes(dk);
+            return <button key={i} onClick={()=>{setDay(i);setOpenEx({0:true});}} style={{flexShrink:0,padding:"7px 16px",borderRadius:20,fontSize:12,fontWeight:600,cursor:"pointer",border:`1.5px solid ${i===day?ac:isDone?GR:D3}`,color:i===day?D:isDone?GR:MU,background:i===day?ac:"transparent",fontFamily:"'DM Sans',sans-serif"}}>{d.name}</button>;
+          })}
+        </div>
+        <div style={{flex:1,overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"16px 16px 16px"}}>
+          {mode==="travel"&&<div style={{background:TB,border:`1px solid ${TB2}`,borderRadius:10,padding:"10px 14px",marginBottom:14}}>
+            {TRAVEL_TIPS.slice(0,2).map((t,i)=><div key={i} style={{fontSize:12,color:CR,marginBottom:i<1?4:0}}>{t.icon} {t.tip}</div>)}
+          </div>}
+          <div style={{marginBottom:14}}>
+            <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:28,letterSpacing:2,color:CR,lineHeight:1}}>{w.name} — {w.focus}</div>
+            <div style={{height:4,background:D3,borderRadius:2,margin:"10px 0 4px"}}><div style={{height:4,background:ac,borderRadius:2,width:`${pct}%`,transition:"width .3s"}}/></div>
+            <div style={{fontSize:11,color:MU}}>{pct}% complete</div>
+          </div>
+          {w.exercises.map((ex,ei)=>{
+            const exl=dl[ei]||{};const numS=(exl.extra||0)+ex.s;
+            let done2=0;for(let s2=0;s2<numS;s2++){if(exl[s2]?.done)done2++;}
+            const exDone=done2===numS&&numS>0;const isOpen=openEx[ei];
+            return (
+              <div key={ei} style={{...s.card,border:`1px solid ${exDone?D3:ac}`}}>
+                <div style={s.cardHead} onClick={()=>setOpenEx(p=>({...p,[ei]:!p[ei]}))}>
+                  <div><div style={s.cardTitle}>{ex.n}</div><div style={s.cardSub}>{ex.s} sets × {ex.r}</div></div>
+                  <div style={{...s.badge,...(exDone?{background:"#0F3D22",color:GR}:{})}}>{exDone?"✓ Done":`${done2}/${numS}`}</div>
+                </div>
+                {isOpen&&<div style={s.cardBody}>
+                  {Array.from({length:numS},(_,si)=>{
+                    const sd=exl[si]||{};const isDone=sd.done||false;
+                    return (
+                      <div key={si} style={{...s.setRow,...(si===numS-1?{borderBottom:"none"}:{})}}>
+                        <div style={s.setNum}>{si+1}</div>
+                        <div style={{display:"flex",gap:8,flex:1}}>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:3}}>{mode==="travel"?"Reps":"Weight"}</div>
+                            <SmartInput value={mode==="travel"?(sd.r||""):(sd.w||"")} onSave={v=>setVal(ei,si,mode==="travel"?"r":"w",v)} placeholder={mode==="travel"?ex.r.split("-")[0]:"lbs"} im={mode==="travel"?"numeric":"decimal"}/>
+                          </div>
+                          {mode==="gym"&&<div style={{flex:1}}>
+                            <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:3}}>Reps</div>
+                            <SmartInput value={sd.r||""} onSave={v=>setVal(ei,si,"r",v)} placeholder={ex.r.split("-")[0]} im="numeric"/>
+                          </div>}
+                          {mode==="travel"&&<div style={{flex:1}}>
+                            <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:3}}>RPE 1-10</div>
+                            <SmartInput value={sd.rpe||""} onSave={v=>setVal(ei,si,"rpe",v)} placeholder="—" im="numeric"/>
+                          </div>}
+                        </div>
+                        <div style={{...s.check,...(isDone?s.checkDone:{})}} onClick={()=>checkSet(ei,si)}>{isDone?"✓":"○"}</div>
+                      </div>
+                    );
+                  })}
+                  {ex.note&&<div style={{fontSize:11,color:MU,fontStyle:"italic",padding:"8px 0 4px"}}>⚠ {ex.note}</div>}
+                  <button onClick={()=>addSet(ei)} style={{width:"100%",marginTop:10,padding:10,background:"transparent",border:`1px dashed ${D3}`,borderRadius:8,color:MU,fontSize:13,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>+ Add set</button>
+                </div>}
+              </div>
+            );
+          })}
+          {/* Cardio */}
+          <div style={s.card}>
+            <div style={s.cardHead} onClick={()=>setOpenEx(p=>({...p,cardio:!p.cardio}))}>
+              <div><div style={s.cardTitle}>🚶 {w.cardio.n}</div><div style={s.cardSub}>{w.cardio.note}</div></div>
+              <div style={s.badge}>Cardio</div>
+            </div>
+            {openEx.cardio&&<div style={s.cardBody}>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginTop:4}}>
+                {[["Minutes","dur",String(w.cardio.dur)],[mode==="travel"?"Notes":"Speed mph","spd","3.8"],[mode==="travel"?"Feel":"% Grade","grd","8"]].map(([lbl,field,ph])=>(
+                  <div key={field}>
+                    <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:4}}>{lbl}</div>
+                    <SmartInput value={(dl.cardio||{})[field]||""} onSave={v=>setCardio(field,v)} placeholder={ph} im="decimal" style={{width:"100%",background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:18,fontWeight:600,fontFamily:"'DM Sans',sans-serif",padding:"10px 6px",textAlign:"center",WebkitAppearance:"none",minHeight:44,outline:"none"}}/>
+                  </div>
+                ))}
+              </div>
+            </div>}
+          </div>
+          {/* Session Notes */}
+          <div style={{background:D2,border:`1px solid ${D3}`,borderRadius:12,marginBottom:12,padding:"14px 16px"}}>
+            <div style={{fontSize:13,fontWeight:600,color:CR,marginBottom:12}}>Session Notes</div>
+            <div style={{fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:8}}>How did this session feel?</div>
+            <div style={{display:"flex",gap:8,marginBottom:14}}>
+              {[1,2,3,4,5].map(n=>(
+                <button key={n} onClick={()=>setRating(n)} style={{flex:1,padding:"10px 4px",borderRadius:8,border:`1px solid ${n<=rating?G:D3}`,background:n<=rating?"#2A1F0A":"transparent",color:n<=rating?G:MU,fontSize:18,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>{n<=rating?"★":"☆"}</button>
+              ))}
+            </div>
+            <div style={{fontSize:11,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:6}}>Notes / PRs / shoulder check</div>
+            <SmartTextarea value={dl.sessionNote||""} onSave={v=>setNote(v)} placeholder="Shoulder felt good today... new PR on incline press... walked 3 miles after..."/>
+            <div style={{fontSize:10,color:"#444",marginTop:4,textAlign:"right"}}>Auto-saved ✓</div>
+          </div>
+          {mode==="travel"&&<div style={{marginTop:4}}>
+            <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>All Travel Tips</div>
+            {TRAVEL_TIPS.map((t,i)=>(
+              <div key={i} style={{background:D2,border:`1px solid ${D3}`,borderRadius:10,padding:"10px 14px",marginBottom:8,display:"flex",gap:12,alignItems:"flex-start"}}>
+                <span style={{fontSize:20,flexShrink:0}}>{t.icon}</span>
+                <span style={{fontSize:13,color:CR,lineHeight:1.5}}>{t.tip}</span>
+              </div>
+            ))}
+          </div>}
+          <div style={{height:80}}/>
+        </div>
+        <div style={{flexShrink:0,padding:"12px 16px",background:D2,borderTop:`1px solid ${D3}`,display:"flex",gap:10,paddingBottom:"calc(12px + env(safe-area-inset-bottom))"}}>
+          <button onClick={()=>setTab("home")} style={{background:D3,color:CR,fontFamily:"'DM Sans',sans-serif",fontSize:14,fontWeight:600,border:"none",borderRadius:12,padding:"14px 18px",cursor:"pointer",flexShrink:0}}>← Home</button>
+          <button onClick={finishWorkout} style={{flex:1,background:ac,color:D,fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:2,border:"none",borderRadius:12,padding:14,cursor:"pointer"}}>FINISH WORKOUT</button>
+        </div>
+      </div>
+    );
+  };
+
+  // ── WEIGHT + STEPS ────────────────────────────────────────────────────────
+  const TrackScreen=()=>(
+    <div style={{paddingBottom:90}}>
+      <div style={s.topbar}><div style={s.logo}>Stone <span style={{color:CR}}>Mill</span></div><div style={{fontSize:12,color:MU,marginTop:2}}>Weight + Steps</div></div>
+      <div style={s.scroll}>
+        {/* Weight */}
+        <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Log Weight</div>
+        <input type="number" inputMode="decimal" step="0.1" style={s.bigInput} placeholder="220" value={wInput} onChange={e=>setWInput(e.target.value)}/>
+        <div style={{fontSize:12,color:MU,textAlign:"center",margin:"6px 0 12px"}}>pounds</div>
+        <button style={{...s.bigBtn,marginBottom:24}} onClick={logWeight}>LOG WEIGHT</button>
+
+        {/* Steps */}
+        <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Log Steps</div>
+        <div style={{background:D2,border:`1px solid ${D3}`,borderRadius:12,padding:"16px",marginBottom:24}}>
+          <div style={{display:"flex",gap:8,marginBottom:12}}>
+            <input type="text" inputMode="numeric" placeholder="Enter today's steps..." value={stepInput} onChange={e=>setStepInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logSteps()} style={{flex:1,background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:18,fontWeight:600,fontFamily:"'DM Sans',sans-serif",padding:"12px 14px",outline:"none"}}/>
+            <button onClick={logSteps} style={{background:GR,color:D,fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:1,border:"none",borderRadius:8,padding:"12px 18px",cursor:"pointer"}}>LOG</button>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+            {[["Today",todaySteps>0?todaySteps.toLocaleString():"—","steps"],[`${stepPct}%`,"of goal",`${stepGoal.toLocaleString()} target`],["7-Day",avg7Steps()>0?avg7Steps().toLocaleString():"—","avg steps"]].map(([lbl,val,sub])=>(
+              <div key={lbl} style={{background:D3,borderRadius:10,padding:"10px 8px",textAlign:"center"}}>
+                <div style={{fontSize:10,color:MU,textTransform:"uppercase",letterSpacing:".5px",marginBottom:2}}>{lbl}</div>
+                <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,color:G,letterSpacing:1,lineHeight:1.1}}>{val}</div>
+                <div style={{fontSize:10,color:MU,marginTop:2}}>{sub}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Weight history */}
+        <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Weight History</div>
+        {weights.length===0&&<div style={{fontSize:13,color:MU,padding:"8px 0 16px"}}>No entries yet. Log 220 as your starting weight.</div>}
+        {[...weights].reverse().map((e,i,arr)=>{
+          const prev=arr[i+1];let delta=null;
+          if(prev){const diff=(e.w-prev.w).toFixed(1);delta={val:(diff<=0?"":"+")+diff,color:diff<=0?GR:"#C0392B"};}
+          const d=new Date(e.d+"T12:00:00");
+          return <div key={e.d} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${D3}`}}>
+            <span style={{fontSize:13,color:MU}}>{d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+            {delta&&<span style={{fontSize:12,fontWeight:600,color:delta.color}}>{delta.val}</span>}
+            <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:20,letterSpacing:1}}>{e.w} lbs</span>
+          </div>;
+        })}
+
+        {steps.length>0&&<>
+          <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8,marginTop:20}}>Step History</div>
+          {[...steps].reverse().slice(0,14).map((e)=>{
+            const d=new Date(e.d+"T12:00:00");
+            const pct2=Math.min(100,Math.round(e.s/stepGoal*100));
+            const hit=e.s>=10000;
+            return <div key={e.d} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:`1px solid ${D3}`}}>
+              <span style={{fontSize:13,color:MU}}>{d.toLocaleDateString("en-US",{month:"short",day:"numeric"})}</span>
+              <div style={{flex:1,margin:"0 12px",height:4,background:D3,borderRadius:2}}>
+                <div style={{height:4,background:hit?GR:G,borderRadius:2,width:`${pct2}%`}}/>
+              </div>
+              <span style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:18,letterSpacing:1,color:hit?GR:CR}}>{e.s.toLocaleString()}</span>
+            </div>;
+          })}
+        </>}
+      </div>
+    </div>
+  );
+
+  // ── EXPORT ────────────────────────────────────────────────────────────────
+  const ExportScreen=()=>(
+    <div style={{paddingBottom:90}}>
+      <div style={s.topbar}><div style={s.logo}>Stone <span style={{color:CR}}>Mill</span></div><div style={{fontSize:12,color:MU,marginTop:2}}>Export to Spreadsheet</div></div>
+      <div style={s.scroll}>
+        <div style={{fontSize:13,color:MU,marginBottom:16,lineHeight:1.6}}>Generates weight, steps, and all workout data. Copy and paste into your Excel spreadsheet.</div>
+        <div style={{background:D2,border:`1px solid ${D3}`,borderRadius:12,padding:14,fontSize:11,color:MU,fontFamily:"monospace",whiteSpace:"pre-wrap",maxHeight:300,overflowY:"auto",lineHeight:1.6,marginBottom:12}}>{exportText}</div>
+        <button style={{...s.bigBtn,marginBottom:10}} onClick={generateExport}>GENERATE EXPORT</button>
+        <button style={{...s.bigBtn,background:D3,color:CR}} onClick={copyExport}>{copied?"COPIED ✓":"COPY TO CLIPBOARD"}</button>
+      </div>
+    </div>
+  );
+
+  const tabs=[["home","⌂","Home"],["workout","◈","Workout"],["track","◎","Track"],["export","↗","Export"]];
+
+  return (
+    <div style={s.app}>
+      <div style={{flex:1,overflowY:tab==="workout"?"hidden":"auto"}}>
+        {tab==="home"&&<HomeScreen/>}
+        {tab==="workout"&&<WorkoutScreen/>}
+        {tab==="track"&&<TrackScreen/>}
+        {tab==="export"&&<ExportScreen/>}
+      </div>
+      {tab!=="workout"&&<nav style={s.nav}>
+        {tabs.map(([id,icon,lbl])=>(
+          <button key={id} onClick={()=>setTab(id)} style={{...s.navBtn,color:tab===id?ac:MU}}>
+            <span style={{fontSize:20}}>{icon}</span>{lbl}
+          </button>
+        ))}
+      </nav>}
+      {timer&&<div style={{position:"fixed",bottom:80,left:"50%",transform:"translateX(-50%)",background:D,border:`1.5px solid ${ac}`,borderRadius:30,padding:"10px 22px",display:"flex",alignItems:"center",gap:14,zIndex:999,minWidth:240,boxShadow:"0 4px 20px rgba(0,0,0,.6)"}}>
+        <div><div style={{fontSize:11,color:MU}}>REST</div><div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:30,color:ac,letterSpacing:2,lineHeight:1}}>{timerSec}</div></div>
+        <div style={{fontSize:12,color:MU,flex:1,paddingLeft:10}}>{timerNext}</div>
+        <div style={{fontSize:22,color:MU,cursor:"pointer",padding:4,minWidth:32,textAlign:"center"}} onClick={()=>{clearInterval(timerRef.current);setTimer(null);}}>✕</div>
+      </div>}
+      {modal&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.85)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+        <div style={{background:D2,border:`2px solid ${ac}`,borderRadius:20,padding:"32px 24px",textAlign:"center",width:"100%",maxWidth:340}}>
+          <div style={{fontSize:52,marginBottom:12}}>{mode==="travel"?"✈️":"🏆"}</div>
+          <div style={{fontFamily:"'Bebas Neue',sans-serif",fontSize:36,letterSpacing:3,color:ac,marginBottom:8}}>CRUSHED IT</div>
+          <div style={{fontSize:14,color:MU,lineHeight:1.6,marginBottom:24}}>{modal}</div>
+          <button style={{...s.bigBtn,background:ac}} onClick={()=>{setModal(null);setTab("home");}}>DONE</button>
+        </div>
+      </div>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
