@@ -586,11 +586,10 @@ function App(){
   return (
     <div style={s.app}>
       <div style={{flex:1,overflowY:tab==="workout"?"hidden":"auto"}}>
-        {tab==="home"&&<HomeScreen/>}
-        {tab==="workout"&&<WorkoutScreen/>}
-        {tab==="track"&&<TrackScreen/>}
-        {tab==="export"&&<ExportScreen/>}
-      </div>
+        {tab==="home"&&HomeScreen()}
+        {tab==="workout"&&WorkoutScreen()}
+        {tab==="track"&&TrackScreen()}
+        {tab==="export"&&ExportScreen()}      </div>
       {tab!=="workout"&&<nav style={s.nav}>
         {tabs.map(([id,icon,lbl])=>(
           <button key={id} onClick={()=>setTab(id)} style={{...s.navBtn,color:tab===id?ac:MU}}>
