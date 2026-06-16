@@ -175,7 +175,11 @@ function SmartInput({value,onSave,placeholder,im,style}){
   const [local,setLocal]=useState(value||"");
   const debounce=useRef(null);
   const latest=useRef(local);
-  useEffect(()=>{setLocal(value||"");latest.current=value||"";},[value]);
+  const isFocused=useRef(false);
+  useEffect(()=>{
+    // Only sync from parent when not focused, to avoid overwriting mid-typing
+    if(!isFocused.current){setLocal(value||"");latest.current=value||"";}
+  },[value]);
   useEffect(()=>{
     const flush=()=>{clearTimeout(debounce.current);onSave(latest.current);};
     document.addEventListener("visibilitychange",flush);
@@ -183,14 +187,18 @@ function SmartInput({value,onSave,placeholder,im,style}){
     return()=>{document.removeEventListener("visibilitychange",flush);window.removeEventListener("pagehide",flush);clearTimeout(debounce.current);};
   },[]);
   return <input type="text" inputMode={im||"decimal"} style={style||s.setInput} placeholder={placeholder||""} value={local}
-    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}
-    onBlur={e=>{clearTimeout(debounce.current);onSave(e.target.value);}}/>;
+    onFocus={()=>{isFocused.current=true;}}
+    onBlur={e=>{isFocused.current=false;clearTimeout(debounce.current);onSave(e.target.value);}}
+    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}/>;
 }
 function SmartTextarea({value,onSave,placeholder}){
   const [local,setLocal]=useState(value||"");
   const debounce=useRef(null);
   const latest=useRef(local);
-  useEffect(()=>{setLocal(value||"");latest.current=value||"";},[value]);
+  const isFocused=useRef(false);
+  useEffect(()=>{
+    if(!isFocused.current){setLocal(value||"");latest.current=value||"";}
+  },[value]);
   useEffect(()=>{
     const flush=()=>{clearTimeout(debounce.current);onSave(latest.current);};
     document.addEventListener("visibilitychange",flush);
@@ -199,8 +207,9 @@ function SmartTextarea({value,onSave,placeholder}){
   },[]);
   return <textarea style={{width:"100%",background:D3,border:`1px solid #4A4540`,borderRadius:8,color:CR,fontSize:14,fontFamily:"'DM Sans',sans-serif",padding:"10px 12px",resize:"none",minHeight:80,lineHeight:1.5}} placeholder={placeholder||""}
     value={local}
-    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}
-    onBlur={e=>{clearTimeout(debounce.current);onSave(e.target.value);}}/>;
+    onFocus={()=>{isFocused.current=true;}}
+    onBlur={e=>{isFocused.current=false;clearTimeout(debounce.current);onSave(e.target.value);}}
+    onChange={e=>{const v=e.target.value;setLocal(v);latest.current=v;clearTimeout(debounce.current);debounce.current=setTimeout(()=>onSave(v),600);}}/>;
 }
 
 function App(){
@@ -392,7 +401,7 @@ function App(){
   // ── WORKOUT ───────────────────────────────────────────────────────────────
   const WorkoutScreen=()=>{
     const w=WO[day];let total=0,comp=0;
-    w.exercises.forEach((ex,ei)=>{const numS=(dl[ei]?.extra||0)+ex.s;total+=numS;for(let s=0;s<numS;s++){if(dl[ei]?.[s]?.done)comp++;}});
+    w.exercises.forEach((ex,ei)=>{const numS=(dl[ei]?.extra||0)+ex.s;total+=numS;for(let si2=0;si2<numS;si2++){if(dl[ei]?.[si2]?.done)comp++;}});
     const pct=total>0?Math.round(comp/total*100):0;
     const rating=dl.rating||0;
     return (
@@ -419,7 +428,7 @@ function App(){
           </div>
           {w.exercises.map((ex,ei)=>{
             const exl=dl[ei]||{};const numS=(exl.extra||0)+ex.s;
-            let done2=0;for(let s2=0;s2<numS;s2++){if(exl[s2]?.done)done2++;}
+            let done2=0;for(let si2=0;si2<numS;si2++){if(exl[si2]?.done)done2++;}
             const exDone=done2===numS&&numS>0;const isOpen=openEx[ei];
             return (
               <div key={ei} style={{...s.card,border:`1px solid ${exDone?D3:ac}`}}>
@@ -513,7 +522,7 @@ function App(){
       <div style={s.scroll}>
         {/* Weight */}
         <div style={{fontSize:11,color:MU,fontWeight:600,letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Log Weight</div>
-        <input type="number" inputMode="decimal" step="0.1" style={s.bigInput} placeholder="220" value={wInput} onChange={e=>setWInput(e.target.value)}/>
+        <input type="number" inputMode="decimal" step="0.1" style={s.bigInput} placeholder="220" value={wInput} onChange={e=>setWInput(e.target.value)} onKeyDown={e=>e.key==="Enter"&&logWeight()}/>
         <div style={{fontSize:12,color:MU,textAlign:"center",margin:"6px 0 12px"}}>pounds</div>
         <button style={{...s.bigBtn,marginBottom:24}} onClick={logWeight}>LOG WEIGHT</button>
 
@@ -589,7 +598,8 @@ function App(){
         {tab==="home"&&HomeScreen()}
         {tab==="workout"&&WorkoutScreen()}
         {tab==="track"&&TrackScreen()}
-        {tab==="export"&&ExportScreen()}      </div>
+        {tab==="export"&&ExportScreen()}
+      </div>
       {tab!=="workout"&&<nav style={s.nav}>
         {tabs.map(([id,icon,lbl])=>(
           <button key={id} onClick={()=>setTab(id)} style={{...s.navBtn,color:tab===id?ac:MU}}>
